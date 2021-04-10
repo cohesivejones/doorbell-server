@@ -21,15 +21,18 @@
 #include <bluefruit.h>
 
 // max concurrent connections supported by this example
-#define MAX_PRPH_CONNECTION   2
+#define MAX_PRPH_CONNECTION 2
 uint8_t connection_count = 0;
+
+#define STATE_ON 1
+#define STATE_OFF 0
 
 /* HRM Service Definitions
  * Heart Rate Monitor Service:  0x180D
  * Heart Rate Measurement Char: 0x2A37
  * Body Sensor Location Char:   0x2A38
  */
-BLEService        hrms = BLEService(UUID16_SVC_HEART_RATE);
+BLEService hrms = BLEService(UUID16_SVC_HEART_RATE);
 BLECharacteristic hrmc = BLECharacteristic(UUID16_CHR_HEART_RATE_MEASUREMENT);
 BLECharacteristic bslc = BLECharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
 
@@ -39,24 +42,21 @@ BLECharacteristic bslc = BLECharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
  */
 
 const uint8_t LBS_UUID_SERVICE[] =
-{
-    0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
-    0xDE, 0xEF, 0x12, 0x12, 0x23, 0x15, 0x00, 0x00
-};
+    {
+        0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
+        0xDE, 0xEF, 0x12, 0x12, 0x23, 0x15, 0x00, 0x00};
 
 const uint8_t LBS_UUID_CHR_BUTTON[] =
-{
-    0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
-    0xDE, 0xEF, 0x12, 0x12, 0x24, 0x15, 0x00, 0x00
-};
+    {
+        0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
+        0xDE, 0xEF, 0x12, 0x12, 0x24, 0x15, 0x00, 0x00};
 
 const uint8_t LBS_UUID_CHR_LED[] =
-{
-    0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
-    0xDE, 0xEF, 0x12, 0x12, 0x25, 0x15, 0x00, 0x00
-};
+    {
+        0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
+        0xDE, 0xEF, 0x12, 0x12, 0x25, 0x15, 0x00, 0x00};
 
-BLEService        lbs(LBS_UUID_SERVICE);
+BLEService lbs(LBS_UUID_SERVICE);
 BLECharacteristic lsbButton(LBS_UUID_CHR_BUTTON);
 BLECharacteristic lsbLED(LBS_UUID_CHR_LED);
 
@@ -71,11 +71,11 @@ uint8_t buttonState;
 
 void setup()
 {
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, 1-LED_STATE_ON); // led off
+  pinMode(PIN_A3, OUTPUT);
+  digitalWrite(PIN_A3, STATE_OFF);
 
   pinMode(button, INPUT_PULLUP);
-  buttonState = (uint8_t) (1-digitalRead(button)); // button is active LOW
+  buttonState = (uint8_t)(1 - digitalRead(button)); // button is active LOW
 
   Serial.begin(115200);
   //while ( !Serial ) delay(10);   // for nrf52840 with native usb
@@ -137,7 +137,7 @@ void startAdv(void)
   // Secondary Scan Response packet (optional)
   // Since there is no room for 'Name' in Advertising packet
   Bluefruit.ScanResponse.addName();
-  
+
   /* Start Advertising
    * - Enable auto advertising if disconnected
    * - Interval:  fast mode = 20 ms, slow mode = 152.5 ms
@@ -148,38 +148,41 @@ void startAdv(void)
    * https://developer.apple.com/library/content/qa/qa1931/_index.html   
    */
   Bluefruit.Advertising.restartOnDisconnect(true);
-  Bluefruit.Advertising.setInterval(32, 244);    // in unit of 0.625 ms
-  Bluefruit.Advertising.setFastTimeout(30);      // number of seconds in fast mode
-  Bluefruit.Advertising.start(0);                // 0 = Don't stop advertising after n seconds  
+  Bluefruit.Advertising.setInterval(32, 244); // in unit of 0.625 ms
+  Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
+  Bluefruit.Advertising.start(0);             // 0 = Don't stop advertising after n seconds
 }
 
-void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
+void led_write_callback(uint16_t conn_hdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
 {
-  (void) conn_hdl;
-  (void) chr;
-  (void) len; // len should be 1
-
-  // data = 1 -> LED = On
-  // data = 0 -> LED = Off
-  digitalWrite(LED_BUILTIN, data[0] ? LED_STATE_ON : (1-LED_STATE_ON));
+  (void)conn_hdl;
+  (void)chr;
+  (void)len;
+  if (data[0] == STATE_ON)
+  {
+    digitalWrite(PIN_A3, STATE_ON);
+    delay(500);
+    digitalWrite(PIN_A3, STATE_OFF);
+    chr->write8(STATE_OFF);
+  }
 }
 
 void loop()
 {
   delay(10); // poll button every 10 ms
 
-  uint8_t newState = (uint8_t) (1-digitalRead(button)); // button is active LOW
+  uint8_t newState = (uint8_t)(1 - digitalRead(button)); // button is active LOW
 
   // only notify if button state chagnes
-  if ( newState != buttonState)
+  if (newState != buttonState)
   {
     buttonState = newState;
     lsbButton.write8(buttonState);
 
     // notify all connected clients
-    for (uint16_t conn_hdl=0; conn_hdl < MAX_PRPH_CONNECTION; conn_hdl++)
+    for (uint16_t conn_hdl = 0; conn_hdl < MAX_PRPH_CONNECTION; conn_hdl++)
     {
-      if ( Bluefruit.connected(conn_hdl) && lsbButton.notifyEnabled(conn_hdl) )
+      if (Bluefruit.connected(conn_hdl) && lsbButton.notifyEnabled(conn_hdl))
       {
         lsbButton.notify8(conn_hdl, buttonState);
       }
@@ -190,7 +193,7 @@ void loop()
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
 {
-  (void) conn_handle;
+  (void)conn_handle;
 
   connection_count++;
   Serial.print("Connection count: ");
@@ -211,11 +214,12 @@ void connect_callback(uint16_t conn_handle)
  */
 void disconnect_callback(uint16_t conn_handle, uint8_t reason)
 {
-  (void) conn_handle;
-  (void) reason;
+  (void)conn_handle;
+  (void)reason;
 
   Serial.println();
-  Serial.print("Disconnected, reason = 0x"); Serial.println(reason, HEX);
+  Serial.print("Disconnected, reason = 0x");
+  Serial.println(reason, HEX);
 
   connection_count--;
 }
