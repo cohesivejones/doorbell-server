@@ -27,6 +27,8 @@ uint8_t connection_count = 0;
 #define STATE_ON 1
 #define STATE_OFF 0
 
+#define BUTTON_WAIT_TIME 20000
+
 /* HRM Service Definitions
  * Heart Rate Monitor Service:  0x180D
  * Heart Rate Measurement Char: 0x2A37
@@ -167,13 +169,11 @@ void loop()
 
   uint8_t newState = (uint8_t)(1 - digitalRead(button)); // button is active LOW
 
-  // only notify if button state chagnes
   if (newState != buttonState)
   {
     buttonState = newState;
     lsbButton.write8(buttonState);
 
-    // notify all connected clients
     for (uint16_t conn_hdl = 0; conn_hdl < MAX_PRPH_CONNECTION; conn_hdl++)
     {
       if (Bluefruit.connected(conn_hdl) && lsbButton.notifyEnabled(conn_hdl))
@@ -181,6 +181,7 @@ void loop()
         lsbButton.notify8(conn_hdl, buttonState);
       }
     }
+    delay(BUTTON_WAIT_TIME);
   }
 }
 
