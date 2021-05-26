@@ -21,7 +21,7 @@
 #include <bluefruit.h>
 
 // max concurrent connections supported by this example
-#define MAX_PRPH_CONNECTION 2
+#define MAX_PRPH_CONNECTION 1
 uint8_t connection_count = 0;
 
 #define STATE_ON 1
@@ -174,11 +174,14 @@ void loop()
     buttonState = newState;
     lsbButton.write8(buttonState);
 
-    for (uint16_t conn_hdl = 0; conn_hdl < MAX_PRPH_CONNECTION; conn_hdl++)
+    if (newState == HIGH)
     {
-      if (Bluefruit.connected(conn_hdl) && lsbButton.notifyEnabled(conn_hdl))
+      for (uint16_t conn_hdl = 0; conn_hdl < MAX_PRPH_CONNECTION; conn_hdl++)
       {
-        lsbButton.notify8(conn_hdl, buttonState);
+        if (Bluefruit.connected(conn_hdl) && lsbButton.notifyEnabled(conn_hdl))
+        {
+          lsbButton.notify8(conn_hdl, buttonState);
+        }
       }
     }
     delay(BUTTON_WAIT_TIME);
